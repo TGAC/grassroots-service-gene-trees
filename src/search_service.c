@@ -36,7 +36,7 @@
  * Static declarations
  */
 
-static NamedParameterType S_GENE_ID = { "Gene", PT_KEYWORD };
+static NamedParameterType S_GENE_ID = { "GT Gene", PT_KEYWORD };
 
 
 static const char *GetGeneTreesSearchServiceName (const Service *service_p);
@@ -367,11 +367,10 @@ static void DoSearch (ServiceJob *job_p, const char * const gene_s, GeneTreesSer
 							const size_t num_results = json_array_size (results_p);
 							size_t i = 0;
 							size_t num_added = 0;
-							bool success_flag = true;
 
-							while ((i < num_results) && success_flag)
+							while (i < num_results)
 								{
-									const json_t *entry_p = json_array_get (results_p, i);
+									json_t *entry_p = json_array_get (results_p, i);
 									json_t *resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, gene_s, entry_p);
 
 									if (resource_p)
@@ -389,17 +388,23 @@ static void DoSearch (ServiceJob *job_p, const char * const gene_s, GeneTreesSer
 									++ i;
 								}		/* while ((i < num_results) && success_flag) */
 
-							if (!success_flag)
+							if (num_added == num_results)
 								{
-									json_decref (results_p);
-									results_p = NULL;
+									status = OS_SUCCEEDED;
+								}
+							else if (num_added > 0)
+								{
+									status = OS_PARTIALLY_SUCCEEDED;
+								}
+							else
+								{
+									status = OS_FAILED;
 								}
 
 							json_decref (results_p);
 						}		/* if (results_p) */
 
 				}		/* if (BSON_APPEND_UTF8 (query_p, PGS_POPULATION_NAME_S, gene_s)) */
-
 
 			bson_destroy (query_p);
 		}		/* if (query_p) */
