@@ -408,6 +408,10 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 											title_s = ConcatenateVarargsStrings (value_s, " - ", index_s, NULL);
 											FreeCopiedString (index_s);
 										}
+									else
+										{
+											PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "Failed to convert " SIZET_FMT " to string", i);
+										}
 
 									resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s ? title_s : value_s, entry_p);
 
@@ -424,8 +428,13 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 												}
 											else
 												{
+													PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, resource_p, "Failed to add result " SIZET_FMT " for query \"%s\": \"%s\" to service job", i, key_s, value_s);
 													json_decref (resource_p);
 												}
+										}
+									else
+										{
+											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to create resource for result " SIZET_FMT " to query \"%s\": \"%s\"", i, key_s, value_s);
 										}
 
 									++ i;
@@ -448,47 +457,18 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 						}		/* if (results_p) */
 
 				}		/* if (BSON_APPEND_UTF8 (query_p, PGS_POPULATION_NAME_S, gene_s)) */
-
+			else
+				{
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to append \"%s\": \"%s\" to query", key_s, value_s);
+				}
 			bson_destroy (query_p);
 		}		/* if (query_p) */
+	else
+		{
+			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to create query for \"%s\": \"%s\"", key_s, value_s);
+		}
 
 	SetServiceJobStatus (job_p, status);
-}
-
-
-
-
-static bool CopyJSONString (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s)
-{
-	bool success_flag = false;
-	const char *value_s = GetJSONString (src_p, src_key_s);
-
-	if (value_s)
-		{
-			if (SetJSONString (dest_p, dest_key_s ? dest_key_s : src_key_s, value_s))
-				{
-					success_flag = true;
-				}
-		}
-
-	return success_flag;
-}
-
-
-static bool CopyJSONObject (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s)
-{
-	bool success_flag = false;
-	json_t *value_p = json_object_get (src_p, src_key_s);
-
-	if (value_p)
-		{
-			if (json_object_set (dest_p, dest_key_s ? dest_key_s : src_key_s, value_p) == 0)
-				{
-					success_flag = true;
-				}
-		}
-
-	return success_flag;
 }
 
 
