@@ -36,7 +36,8 @@
  * Static declarations
  */
 
-static NamedParameterType S_GENE_ID = { "GT Gene", PT_KEYWORD };
+static NamedParameterType S_GENE_ID = { "GT Gene", PT_STRING };
+static NamedParameterType S_CLUSTER_ID = { "GT Cluster", PT_STRING };
 
 
 static const char *GetGeneTreesSearchServiceName (const Service *service_p);
@@ -61,7 +62,7 @@ static bool CloseGeneTreesSearchService (Service *service_p);
 
 static ServiceMetadata *GetGeneTreesSearchServiceMetadata (Service *service_p);
 
-static void DoSearch (ServiceJob *job_p, const char * const gene_s, GeneTreesServiceData *data_p);
+static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const value_s, GeneTreesServiceData *data_p);
 
 static bool CopyJSONString (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s);
 
@@ -161,7 +162,14 @@ static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, Re
 
 			if ((param_p = EasyCreateAndAddStringParameterToParameterSet (data_p, param_set_p, group_p, S_GENE_ID.npt_type, S_GENE_ID.npt_name_s, "Gene", "The Gene ID to search for", NULL, PL_ALL)) != NULL)
 				{
-					return param_set_p;
+					if ((param_p = EasyCreateAndAddStringParameterToParameterSet (data_p, param_set_p, group_p, S_CLUSTER_ID.npt_type, S_CLUSTER_ID.npt_name_s, "Cluster", "The Cluster ID to search for", NULL, PL_ALL)) != NULL)
+						{
+							return param_set_p;
+						}
+					else
+						{
+							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add %s parameter", S_CLUSTER_ID.npt_name_s);
+						}
 				}
 			else
 				{
@@ -186,6 +194,10 @@ static bool GetGeneTreesSearchServiceParameterTypesForNamedParameters (const Ser
 	if (strcmp (param_name_s, S_GENE_ID.npt_name_s) == 0)
 		{
 			*pt_p = S_GENE_ID.npt_type;
+		}
+	else if (strcmp (param_name_s, S_CLUSTER_ID.npt_name_s) == 0)
+		{
+			*pt_p = S_CLUSTER_ID.npt_type;
 		}
 	else
 		{
@@ -229,16 +241,32 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 
 			if (param_set_p)
 				{
-					const char *gene_s = NULL;
+					const char *key_s = NULL;
+					const char *value_s = NULL;
 
-					if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_GENE_ID.npt_name_s, &gene_s))
+					if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_GENE_ID.npt_name_s, &value_s))
 						{
-							if (!IsStringEmpty (gene_s))
+							if (!IsStringEmpty (value_s))
 								{
-									DoSearch (job_p, gene_s, data_p);
+									key_s = GTS_GENE_ID_S;
 								}
-
 						}		/* if (GetParameterValueFromParameterSet (param_set_p, S_MARKER.npt_name_s, &marker_value, true)) */
+
+					if (!key_s)
+						{
+							if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_CLUSTER_ID.npt_name_s, &value_s))
+								{
+									if (!IsStringEmpty (value_s))
+										{
+											key_s = GTS_CLUSTER_ID_S;
+										}
+								}
+						}
+
+					if (key_s && value_s)
+						{
+							DoSearch (job_p, key_s, value_s, data_p);
+						}
 
 				}		/* if (param_set_p) */
 
@@ -351,14 +379,14 @@ static ParameterSet *IsResourceForGeneTreesSearchService (Service * UNUSED_PARAM
 
 
 
-static void DoSearch (ServiceJob *job_p, const char * const gene_s, GeneTreesServiceData *data_p)
+static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const value_s, GeneTreesServiceData *data_p)
 {
 	OperationStatus status = OS_FAILED_TO_START;
 	bson_t *query_p = bson_new ();
 
 	if (query_p)
 		{
-			if (BSON_APPEND_UTF8 (query_p, GTS_GENE_ID_S, gene_s))
+			if (BSON_APPEND_UTF8 (query_p, key_s, value_s))
 				{
 					json_t *results_p = GetAllMongoResultsAsJSON (data_p -> gtsd_mongo_p, query_p, NULL);
 
@@ -371,7 +399,22 @@ static void DoSearch (ServiceJob *job_p, const char * const gene_s, GeneTreesSer
 							while (i < num_results)
 								{
 									json_t *entry_p = json_array_get (results_p, i);
-									json_t *resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, gene_s, entry_p);
+									json_t *resource_p = NULL;
+									char *index_s = ConvertSizeTToString (i);
+									char *title_s = NULL;
+
+									if (index_s)
+										{
+											title_s = ConcatenateVarargsStrings (value_s, " - ", index_s, NULL);
+											FreeCopiedString (index_s);
+										}
+
+									resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s ? title_s : value_s, entry_p);
+
+									if (title_s)
+										{
+											FreeCopiedString (title_s);
+										}
 
 									if (resource_p)
 										{
