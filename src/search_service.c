@@ -64,10 +64,6 @@ static ServiceMetadata *GetGeneTreesSearchServiceMetadata (Service *service_p);
 
 static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const value_s, GeneTreesServiceData *data_p);
 
-static bool CopyJSONString (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s);
-
-static bool CopyJSONObject (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s);
-
 
 /*
  * API definitions
@@ -189,22 +185,14 @@ static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, Re
 
 static bool GetGeneTreesSearchServiceParameterTypesForNamedParameters (const Service *service_p, const char *param_name_s, ParameterType *pt_p)
 {
-	bool success_flag = true;
+	const NamedParameterType params [] =
+		{
+			S_GENE_ID,
+			S_CLUSTER_ID,
+			NULL
+		};
 
-	if (strcmp (param_name_s, S_GENE_ID.npt_name_s) == 0)
-		{
-			*pt_p = S_GENE_ID.npt_type;
-		}
-	else if (strcmp (param_name_s, S_CLUSTER_ID.npt_name_s) == 0)
-		{
-			*pt_p = S_CLUSTER_ID.npt_type;
-		}
-	else
-		{
-			success_flag = false;
-		}
-
-	return success_flag;
+	return DefaultGetParameterTypeForNamedParameter (param_name_s, pt_p, params);
 }
 
 
@@ -428,6 +416,7 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 												}
 											else
 												{
+													AddGeneralErrorMessageToServiceJob (job_p, "Failed to add one or more hits to result");
 													PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, resource_p, "Failed to add result " SIZET_FMT " for query \"%s\": \"%s\" to service job", i, key_s, value_s);
 													json_decref (resource_p);
 												}
