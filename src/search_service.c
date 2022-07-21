@@ -38,6 +38,7 @@
 
 static NamedParameterType S_GENE_ID = { "GT Gene", PT_STRING };
 static NamedParameterType S_CLUSTER_ID = { "GT Cluster", PT_STRING };
+static NamedParameterType S_GENERATE_INDEXES = { "GT Generate Indexes", PT_BOOLEAN };
 
 
 static const char *GetGeneTreesSearchServiceName (const Service *service_p);
@@ -160,7 +161,14 @@ static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, Re
 				{
 					if ((param_p = EasyCreateAndAddStringParameterToParameterSet (data_p, param_set_p, group_p, S_CLUSTER_ID.npt_type, S_CLUSTER_ID.npt_name_s, "Cluster", "The Cluster ID to search for", NULL, PL_ALL)) != NULL)
 						{
-							return param_set_p;
+							if ((param_p = EasyCreateAndAddBooleanParameterToParameterSet(data_p, param_set_p, group_p, S_GENERATE_INDEXES.npt_name_s, "Indexes", "Ensure indexes for faster searching", NULL, PL_ADVANCED)) != NULL)
+								{
+									return param_set_p;
+								}
+							else
+								{
+									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add %s parameter", S_GENERATE_INDEXES.npt_name_s);
+								}
 						}
 					else
 						{
@@ -189,6 +197,7 @@ static bool GetGeneTreesSearchServiceParameterTypesForNamedParameters (const Ser
 		{
 			S_GENE_ID,
 			S_CLUSTER_ID,
+			S_GENERATE_INDEXES,
 			NULL
 		};
 
@@ -231,6 +240,26 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 				{
 					const char *key_s = NULL;
 					const char *value_s = NULL;
+					bool *indexes_p = NULL;
+
+					if (GetCurrentBooleanParameterValueFromParameterSet (param_set_p, S_GENERATE_INDEXES.npt_name_s, &indexes_p))
+						{
+							if (indexes_p && (*indexes_p))
+								{
+									if (!AddCollectionSingleIndex (data_p -> gtsd_mongo_p, data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S, true, false))
+										{
+											AddParameterErrorMessageToServiceJob (job_p, S_GENERATE_INDEXES.npt_name_s, S_GENERATE_INDEXES.npt_type, "Failed to add index for genes");
+											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add index for db \"%s\" collection \"%s\" field \"%s\"", data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S);
+										}
+
+									if (!AddCollectionSingleIndex (data_p -> gtsd_mongo_p, data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_CLUSTER_ID_S, false, false))
+										{
+											AddParameterErrorMessageToServiceJob (job_p, S_GENERATE_INDEXES.npt_name_s, S_GENERATE_INDEXES.npt_type, "Failed to add index for clusters");
+											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add index for db \"%s\" collection \"%s\" field \"%s\"", data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S);
+										}
+								}
+						}
+
 
 					if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_GENE_ID.npt_name_s, &value_s))
 						{
@@ -255,6 +284,7 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 						{
 							DoSearch (job_p, key_s, value_s, data_p);
 						}
+
 
 				}		/* if (param_set_p) */
 
