@@ -49,7 +49,7 @@ static const char *GetGeneTreesSearchServiceAlias (const Service *service_p);
 
 static const char *GetGeneTreesSearchServiceInformationUri (const Service *service_p);
 
-static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, Resource *resource_p, UserDetails *user_p);
+static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, DataResource *resource_p, UserDetails *user_p);
 
 static bool GetGeneTreesSearchServiceParameterTypesForNamedParameters (const Service *service_p, const char *param_name_s, ParameterType *pt_p);
 
@@ -57,7 +57,7 @@ static void ReleaseGeneTreesSearchServiceParameters (Service *service_p, Paramet
 
 static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
 
-static ParameterSet *IsResourceForGeneTreesSearchService (Service *service_p, Resource *resource_p, Handler *handler_p);
+static ParameterSet *IsResourceForGeneTreesSearchService (Service *service_p, DataResource *resource_p, Handler *handler_p);
 
 static bool CloseGeneTreesSearchService (Service *service_p);
 
@@ -147,7 +147,7 @@ static const char *GetGeneTreesSearchServiceInformationUri (const Service * UNUS
 }
 
 
-static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, Resource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
+static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, DataResource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
 {
 	ParameterSet *param_set_p = AllocateParameterSet ("GeneTrees search service parameters", "The parameters used for the GeneTrees search service");
 
@@ -389,7 +389,7 @@ static ServiceMetadata *GetGeneTreesSearchServiceMetadata (Service * UNUSED_PARA
 }
 
 
-static ParameterSet *IsResourceForGeneTreesSearchService (Service * UNUSED_PARAM (service_p), Resource * UNUSED_PARAM (resource_p), Handler * UNUSED_PARAM (handler_p))
+static ParameterSet *IsResourceForGeneTreesSearchService (Service * UNUSED_PARAM (service_p), DataResource * UNUSED_PARAM (resource_p), Handler * UNUSED_PARAM (handler_p))
 {
 	return NULL;
 }
@@ -431,7 +431,7 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 											PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "Failed to convert " SIZET_FMT " to string", i);
 										}
 
-									resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s ? title_s : value_s, entry_p);
+									resource_p = GetDataResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s ? title_s : value_s, entry_p);
 
 									if (title_s)
 										{
