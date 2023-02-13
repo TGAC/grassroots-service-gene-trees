@@ -240,7 +240,7 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 				{
 					const char *key_s = NULL;
 					const char *value_s = NULL;
-					bool *indexes_p = NULL;
+					const bool *indexes_p = NULL;
 
 					if (GetCurrentBooleanParameterValueFromParameterSet (param_set_p, S_GENERATE_INDEXES.npt_name_s, &indexes_p))
 						{
