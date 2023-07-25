@@ -30,6 +30,7 @@
 #include "string_utils.h"
 
 #include "string_parameter.h"
+#include "unsigned_int_parameter.h"
 #include "boolean_parameter.h"
 
 /*
@@ -37,7 +38,7 @@
  */
 
 static NamedParameterType S_GENE_ID = { "GT Gene", PT_STRING };
-static NamedParameterType S_CLUSTER_ID = { "GT Cluster", PT_STRING };
+static NamedParameterType S_CLUSTER_ID = { "GT Cluster", PT_UNSIGNED_INT };
 static NamedParameterType S_GENERATE_INDEXES = { "GT Generate Indexes", PT_BOOLEAN };
 
 
@@ -63,7 +64,7 @@ static bool CloseGeneTreesSearchService (Service *service_p);
 
 static ServiceMetadata *GetGeneTreesSearchServiceMetadata (Service *service_p);
 
-static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const value_s, GeneTreesServiceData *data_p);
+static void DoSearch (ServiceJob *job_p, const char * const gene_s, const uint32 * const cluster_p, GeneTreesServiceData *data_p);
 
 
 /*
@@ -159,7 +160,7 @@ static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, Da
 
 			if ((param_p = EasyCreateAndAddStringParameterToParameterSet (data_p, param_set_p, group_p, S_GENE_ID.npt_type, S_GENE_ID.npt_name_s, "Gene", "The Gene ID to search for", NULL, PL_ALL)) != NULL)
 				{
-					if ((param_p = EasyCreateAndAddStringParameterToParameterSet (data_p, param_set_p, group_p, S_CLUSTER_ID.npt_type, S_CLUSTER_ID.npt_name_s, "Cluster", "The Cluster ID to search for", NULL, PL_ALL)) != NULL)
+					if ((param_p = EasyCreateAndAddUnsignedIntParameterToParameterSet (data_p, param_set_p, group_p, S_CLUSTER_ID.npt_name_s, "Cluster", "The Cluster ID to search for", NULL, PL_ALL)) != NULL)
 						{
 							if ((param_p = EasyCreateAndAddBooleanParameterToParameterSet(data_p, param_set_p, group_p, S_GENERATE_INDEXES.npt_name_s, "Indexes", "Ensure indexes for faster searching", NULL, PL_ADVANCED)) != NULL)
 								{
@@ -238,8 +239,8 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 
 			if (param_set_p)
 				{
-					const char *key_s = NULL;
-					const char *value_s = NULL;
+					const char *gene_s = NULL;
+					const uint32 *cluster_p = NULL;
 					const bool *indexes_p = NULL;
 
 					if (GetCurrentBooleanParameterValueFromParameterSet (param_set_p, S_GENERATE_INDEXES.npt_name_s, &indexes_p))
@@ -261,28 +262,19 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 						}
 
 
-					if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_GENE_ID.npt_name_s, &value_s))
+					if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_GENE_ID.npt_name_s, &gene_s))
 						{
-							if (!IsStringEmpty (value_s))
+							if (IsStringEmpty (gene_s))
 								{
-									key_s = GTS_GENE_ID_S;
+									gene_s = NULL;
 								}
 						}		/* if (GetParameterValueFromParameterSet (param_set_p, S_MARKER.npt_name_s, &marker_value, true)) */
 
-					if (!key_s)
-						{
-							if (GetCurrentStringParameterValueFromParameterSet (param_set_p, S_CLUSTER_ID.npt_name_s, &value_s))
-								{
-									if (!IsStringEmpty (value_s))
-										{
-											key_s = GTS_CLUSTER_ID_S;
-										}
-								}
-						}
+					GetCurrentUnsignedIntParameterValueFromParameterSet (param_set_p, S_CLUSTER_ID.npt_name_s, &cluster_p);
 
-					if (key_s && value_s)
+					if (gene_s || cluster_p)
 						{
-							DoSearch (job_p, key_s, value_s, data_p);
+							DoSearch (job_p, gene_s, cluster_p, data_p);
 						}
 
 
@@ -397,14 +389,34 @@ static ParameterSet *IsResourceForGeneTreesSearchService (Service * UNUSED_PARAM
 
 
 
-static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const value_s, GeneTreesServiceData *data_p)
+static void DoSearch (ServiceJob *job_p, const char * const gene_s, const uint32 * const cluster_p, GeneTreesServiceData *data_p)
 {
 	OperationStatus status = OS_FAILED_TO_START;
 	bson_t *query_p = bson_new ();
 
 	if (query_p)
 		{
-			if (BSON_APPEND_UTF8 (query_p, key_s, value_s))
+			bool success_flag = true;
+			
+			if (gene_s)
+				{
+					if (!BSON_APPEND_UTF8 (query_p, GTS_GENE_ID_S, gene_s))
+						{
+							success_flag = false;
+							PrintBSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, query_p, "Failed to add \"%s\": \"%s\"", GTS_GENE_ID_S, gene_s);
+						}
+				}
+
+			if (cluster_p)
+				{
+					if (!BSON_APPEND_INT32 (query_p, GTS_CLUSTER_ID_S, *cluster_p))
+						{
+							success_flag = false;							
+							PrintBSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, query_p, "Failed to add \"%s\": " UINT32_FMT, GTS_CLUSTER_ID_S, *cluster_p);
+						}
+				}
+
+			if (success_flag)
 				{
 					json_t *results_p = GetAllMongoResultsAsJSON (data_p -> gtsd_mongo_p, query_p, NULL);
 
@@ -413,6 +425,29 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 							const size_t num_results = json_array_size (results_p);
 							size_t i = 0;
 							size_t num_added = 0;
+							char *query_s = NULL;
+							
+							if (cluster_p)
+								{
+									char *cluster_s = ConvertUnsignedIntegerToString (*cluster_p);
+									
+									if (cluster_s)
+										{
+											if (gene_s)
+												{
+													query_s = ConcatenateVarargsStrings (gene_s, " - ", cluster_s, NULL);
+													FreeCopiedString (cluster_s);
+												} 
+											else
+												{
+													query_s = cluster_s;
+												}
+										}
+									else if (gene_s)
+										{
+											query_s = (char *) gene_s;
+										}
+								}
 
 							while (i < num_results)
 								{
@@ -421,17 +456,21 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 									char *index_s = ConvertSizeTToString (i);
 									char *title_s = NULL;
 
-									if (index_s)
+									if (query_s)
 										{
-											title_s = ConcatenateVarargsStrings (value_s, " - ", index_s, NULL);
-											FreeCopiedString (index_s);
-										}
-									else
-										{
-											PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "Failed to convert " SIZET_FMT " to string", i);
+											if (index_s)
+												{
+													title_s = ConcatenateVarargsStrings (query_s, " - ", index_s, NULL);
+													FreeCopiedString (index_s);
+												}
+											else
+												{
+													PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "Failed to convert " SIZET_FMT " to string", i);
+												}
+
 										}
 
-									resource_p = GetDataResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s ? title_s : value_s, entry_p);
+									resource_p = GetDataResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s ? title_s : query_s, entry_p);
 
 									if (title_s)
 										{
@@ -447,13 +486,13 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 											else
 												{
 													AddGeneralErrorMessageToServiceJob (job_p, "Failed to add one or more hits to result");
-													PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, resource_p, "Failed to add result " SIZET_FMT " for query \"%s\": \"%s\" to service job", i, key_s, value_s);
+													PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, resource_p, "Failed to add result " SIZET_FMT " for query \"%s\", %d to service job", i, gene_s ? gene_s : "NULL", cluster_p ? *cluster_p : -1);
 													json_decref (resource_p);
 												}
 										}
 									else
 										{
-											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to create resource for result " SIZET_FMT " to query \"%s\": \"%s\"", i, key_s, value_s);
+											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to create resource for result " SIZET_FMT " to query \"%s\": \%d", i, gene_s ? gene_s : "NULL", cluster_p ? *cluster_p : -1);
 										}
 
 									++ i;
@@ -472,19 +511,24 @@ static void DoSearch (ServiceJob *job_p, const char *key_s, const char * const v
 									status = OS_FAILED;
 								}
 
+							if (query_s && (query_s != gene_s))
+								{
+									FreeCopiedString (query_s);
+								}
+
 							json_decref (results_p);
 						}		/* if (results_p) */
 
 				}		/* if (BSON_APPEND_UTF8 (query_p, PGS_POPULATION_NAME_S, gene_s)) */
 			else
 				{
-					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to append \"%s\": \"%s\" to query", key_s, value_s);
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to append \"%s\", %d to query", gene_s ? gene_s : "NULL", cluster_p ? *cluster_p : -1);
 				}
 			bson_destroy (query_p);
 		}		/* if (query_p) */
 	else
 		{
-			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to create query for \"%s\": \"%s\"", key_s, value_s);
+			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to create query for \"%s\", %d", gene_s ? gene_s : "NULL", cluster_p ? *cluster_p : -1);
 		}
 
 	SetServiceJobStatus (job_p, status);
