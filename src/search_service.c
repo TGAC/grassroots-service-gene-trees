@@ -50,13 +50,13 @@ static const char *GetGeneTreesSearchServiceAlias (const Service *service_p);
 
 static const char *GetGeneTreesSearchServiceInformationUri (const Service *service_p);
 
-static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, DataResource *resource_p, UserDetails *user_p);
+static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, DataResource *resource_p, User *user_p);
 
 static bool GetGeneTreesSearchServiceParameterTypesForNamedParameters (const Service *service_p, const char *param_name_s, ParameterType *pt_p);
 
 static void ReleaseGeneTreesSearchServiceParameters (Service *service_p, ParameterSet *params_p);
 
-static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
+static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSet *param_set_p, User *user_p, ProvidersStateTable *providers_p);
 
 static ParameterSet *IsResourceForGeneTreesSearchService (Service *service_p, DataResource *resource_p, Handler *handler_p);
 
@@ -148,7 +148,7 @@ static const char *GetGeneTreesSearchServiceInformationUri (const Service * UNUS
 }
 
 
-static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, DataResource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
+static ParameterSet *GetGeneTreesSearchServiceParameters (Service *service_p, DataResource * UNUSED_PARAM (resource_p), User * UNUSED_PARAM (user_p))
 {
 	ParameterSet *param_set_p = AllocateParameterSet ("GeneTrees search service parameters", "The parameters used for the GeneTrees search service");
 
@@ -223,7 +223,7 @@ static bool CloseGeneTreesSearchService (Service *service_p)
 }
 
 
-static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
+static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSet *param_set_p, User * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
 {
 	GeneTreesServiceData *data_p = (GeneTreesServiceData *) (service_p -> se_data_p);
 

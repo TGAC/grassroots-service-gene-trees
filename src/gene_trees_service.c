@@ -55,7 +55,7 @@
  */
 
 
-ServicesArray *GetServices (UserDetails *user_p, GrassrootsServer *grassroots_p)
+ServicesArray *GetServices (User *user_p, GrassrootsServer *grassroots_p)
 {
 	Service *search_service_p = GetGeneTreesSearchService (grassroots_p);
 
