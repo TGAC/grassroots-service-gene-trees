@@ -247,13 +247,13 @@ static ServiceJobSet *RunGeneTreesSearchService (Service *service_p, ParameterSe
 						{
 							if (indexes_p && (*indexes_p))
 								{
-									if (!AddCollectionSingleIndex (data_p -> gtsd_mongo_p, data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S, true, false))
+									if (!AddCollectionSingleIndex (data_p -> gtsd_mongo_p, data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S, NULL, true, false))
 										{
 											AddParameterErrorMessageToServiceJob (job_p, S_GENERATE_INDEXES.npt_name_s, S_GENERATE_INDEXES.npt_type, "Failed to add index for genes");
 											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add index for db \"%s\" collection \"%s\" field \"%s\"", data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S);
 										}
 
-									if (!AddCollectionSingleIndex (data_p -> gtsd_mongo_p, data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_CLUSTER_ID_S, false, false))
+									if (!AddCollectionSingleIndex (data_p -> gtsd_mongo_p, data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_CLUSTER_ID_S, NULL, false, false))
 										{
 											AddParameterErrorMessageToServiceJob (job_p, S_GENERATE_INDEXES.npt_name_s, S_GENERATE_INDEXES.npt_type, "Failed to add index for clusters");
 											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add index for db \"%s\" collection \"%s\" field \"%s\"", data_p -> gtsd_database_s, data_p -> gtsd_collection_s, GTS_GENE_ID_S);
